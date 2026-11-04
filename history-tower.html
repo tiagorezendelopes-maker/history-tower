@@ -48,7 +48,7 @@ const ART = {
 };
 
 const K=3, LW=320, LH=240;
-const VERSAO='v0.3.84';
+const VERSAO='v0.3.85';
 const RANK_URL='https://script.google.com/macros/s/AKfycby-yL0XDIqR1i3skttCNuMDnle4S7z_G1tnnE6sFkM3j91Si227mVvCnMprK6cVn6lMRQ/exec';   // endereço /exec do Apps Script da planilha de ranking (vazio = ranking guardado só neste aparelho)   // controle de versões (ver LEIA-ME-PASSE-DE-BASTAO.md)
 let BX=100, BW=120; const BY=82, BH=100;        // caixa de combate (interior)
 const MAXHP=20, HEAL=5, INV_T=1.0;
@@ -5348,9 +5348,14 @@ const RANK={tops:null,src:'',st:'',
   addLocal(c,row){ const L=this.local(); (L[c]=L[c]||[]).push(row); this.saveLocal(L); },
   pend(){ try{ return JSON.parse(localStorage.getItem('ht_rank_pend')||'[]'); }catch(e){ return []; } },
   setPend(a){ try{ localStorage.setItem('ht_rank_pend',JSON.stringify(a)); }catch(e){} },
-  jsonp(par,ok,fail){ const nm='__htr'+Date.now()+Math.floor(Math.random()*1e4), s=document.createElement('script'); let done=false;
+  jsonp(par,ok,fail){   /* busca direta (fetch); o Apps Script aceita chamadas de outros sites. Se falhar, tenta o modo antigo (script) */
+    const q=Object.entries(par).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');
+    if(window.fetch){ let ac=null; try{ ac=new AbortController(); }catch(e){} const to=setTimeout(()=>{ try{ ac&&ac.abort(); }catch(e){} },15000);
+      fetch(RANK_URL+'?'+q,{method:'GET',redirect:'follow',cache:'no-store',signal:ac?ac.signal:undefined}).then(r=>r.json()).then(d=>{ clearTimeout(to); ok(d); }).catch(()=>{ clearTimeout(to); this.jsonpScript(par,ok,fail); }); return; }
+    this.jsonpScript(par,ok,fail); },
+  jsonpScript(par,ok,fail){ const nm='__htr'+Date.now()+Math.floor(Math.random()*1e4), s=document.createElement('script'); let done=false;
     const fim=()=>{ done=true; try{ delete window[nm]; }catch(e){ window[nm]=undefined; } s.remove(); };
-    const to=setTimeout(()=>{ if(!done){ fim(); fail&&fail(); } },15000);   // o Apps Script pode levar alguns segundos para acordar
+    const to=setTimeout(()=>{ if(!done){ fim(); fail&&fail(); } },15000);
     window[nm]=d=>{ if(done) return; clearTimeout(to); fim(); ok(d); };
     s.onerror=()=>{ if(done) return; clearTimeout(to); fim(); fail&&fail(); };
     s.src=RANK_URL+'?'+Object.entries(Object.assign({},par,{callback:nm})).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&'); document.head.appendChild(s); },
